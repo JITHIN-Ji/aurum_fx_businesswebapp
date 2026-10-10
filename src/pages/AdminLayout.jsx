@@ -3,13 +3,16 @@ import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react
 import { Building2, Crown, LayoutDashboard, LogOut, Menu, MessageSquare, Plus, ShieldCheck, UserPlus, UserRound, Users, X } from "lucide-react";
 import { authenticatedAdminRequest, clearAdminSession, getAdminData, getAdminToken } from "../api/adminLogin";
 import { getUnreadMessageCount } from "../api/messages";
+import { getAdminStaffKyc } from "../api/adminStaffKyc";
 
 const ADMIN_NAV = [
     { name: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard, subtitle: "Organization overview and business activity" },
-    { name: "Staff", to: "/admin/staff", icon: Users, subtitle: "Manage staff accounts" },
     { name: "Staff registration", to: "/admin/staff/register", icon: UserPlus, subtitle: "Create a staff account" },
-    { name: "Business", to: "/admin/businesses", icon: Building2, subtitle: "Business directory and records" },
+    { name: "Staff details", to: "/admin/staff", icon: Users, subtitle: "Manage staff accounts" },
+    { name: "Staff reports", to: "/admin/staff-reports", icon: Building2, subtitle: "Generate, print, and export staff business reports" },
+    { name: "Staff KYC", to: "/admin/staff-kyc", icon: ShieldCheck, subtitle: "Review staff Aadhaar verification submissions" },
     { name: "Add business", to: "/admin/businesses/new", icon: Plus, subtitle: "Create a business record" },
+    { name: "Business", to: "/admin/businesses", icon: Building2, subtitle: "Business directory and records" },
     { name: "Messages", to: "/admin/messages", icon: MessageSquare, subtitle: "Field staff messages and enquiries" },
     { name: "Admin profile", to: "/admin/profile", icon: UserRound, subtitle: "Update admin email or password" },
 ];
@@ -26,6 +29,8 @@ export default function AdminLayout() {
     const [open, setOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const [unreadError, setUnreadError] = useState("");
+    const [pendingKycCount, setPendingKycCount] = useState(0);
+    const [pendingKycError, setPendingKycError] = useState("");
     const location = useLocation();
     const navigate = useNavigate();
     const admin = getAdminData();
@@ -51,6 +56,32 @@ export default function AdminLayout() {
             window.removeEventListener("focus", refreshUnreadCount);
         };
     }, [refreshUnreadCount]);
+
+    const refreshPendingKycCount = useCallback(async () => {
+        try {
+            const response = await getAdminStaffKyc("pending");
+            const submissions = Array.isArray(response)
+                ? response
+                : response?.submissions || response?.kyc_submissions || response?.requests || response?.items || response?.data;
+            if (!Array.isArray(submissions)) {
+                throw new Error("The pending staff KYC response has an unexpected format.");
+            }
+            setPendingKycCount(submissions.length);
+            setPendingKycError("");
+        } catch (requestError) {
+            setPendingKycError(requestError.message);
+        }
+    }, []);
+
+    useEffect(() => {
+        refreshPendingKycCount();
+        window.addEventListener("staff-kyc:pending-count-refresh", refreshPendingKycCount);
+        window.addEventListener("focus", refreshPendingKycCount);
+        return () => {
+            window.removeEventListener("staff-kyc:pending-count-refresh", refreshPendingKycCount);
+            window.removeEventListener("focus", refreshPendingKycCount);
+        };
+    }, [refreshPendingKycCount, location.pathname]);
 
     const signOut = () => {
         clearAdminSession();
@@ -89,9 +120,17 @@ export default function AdminLayout() {
                             <li key={item.to}>
                                 <NavLink to={item.to} aria-label={item.name === "Messages"
                                     ? unreadError ? `Messages, unread count unavailable: ${unreadError}` : `Messages, ${unreadCount} unread`
-                                    : undefined}
+                                    : item.name === "Staff KYC"
+                                        ? pendingKycError ? `Staff KYC, pending count unavailable: ${pendingKycError}` : `Staff KYC, ${pendingKycCount} pending submissions`
+                                        : undefined}
                                     className={`ad-nav ${isNavActive(item, location.pathname) ? "ad-nav-on" : ""}`}>
                                     <item.icon size={18} strokeWidth={1.8} /> {item.name}
+                                    {item.to === "/admin/staff-kyc" && (pendingKycCount > 0 || pendingKycError) && (
+                                        <span title={pendingKycError || `${pendingKycCount} pending KYC submissions`}
+                                            className={`ml-auto grid min-w-5 h-5 place-items-center rounded-full px-1 text-[10px] font-bold ${pendingKycError ? "bg-red-500/20 text-red-200" : "bg-[#D9AE4B] text-[#2B0B14]"}`}>
+                                            {pendingKycError ? "!" : pendingKycCount > 99 ? "99+" : pendingKycCount}
+                                        </span>
+                                    )}
                                     {item.to === "/admin/messages" && (unreadCount > 0 || unreadError) && (
                                         <span title={unreadError || `${unreadCount} unread messages`}
                                             className={`ml-auto grid min-w-5 h-5 place-items-center rounded-full px-1 text-[10px] font-bold ${unreadError ? "bg-red-500/20 text-red-200" : "bg-[#D9AE4B] text-[#2B0B14]"}`}>

@@ -1,15 +1,23 @@
 import { createElement, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Building2, CalendarDays, Mail, MapPin, Phone, UserRound, X } from "lucide-react";
+import { Building2, CalendarDays, ExternalLink, Mail, MapPin, Phone, UserRound, X } from "lucide-react";
 
 const show = (value) => (value === null || value === undefined || value === "" ? null : String(value));
+const safeExternalUrl = (value) => {
+    try {
+        const url = new URL(value);
+        return ["http:", "https:"].includes(url.protocol) ? url.href : undefined;
+    } catch {
+        return undefined;
+    }
+};
 
-function Row({ icon, label, value, href }) {
+function Row({ icon, label, value, href, external = false }) {
     const text = show(value);
     if (!text) return null;
     const Tag = href ? "a" : "div";
     return (
-        <Tag href={href} className={`afx-row ${href ? "afx-row-link" : ""}`}>
+        <Tag href={href} target={external ? "_blank" : undefined} rel={external ? "noreferrer" : undefined} className={`afx-row ${href ? "afx-row-link" : ""}`}>
             <span className="afx-row-icon">{createElement(icon, { size: 17 })}</span>
             <div className="min-w-0">
                 <p className="text-xs font-medium text-[var(--afx-muted)]">{label}</p>
@@ -88,6 +96,7 @@ export default function BusinessDetailsModal({ business, onClose }) {
                         <h3 className="afx-h3">Location & business</h3>
                         <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-3">
                             <Row icon={MapPin} label="Address" value={b.address} />
+                            <Row icon={ExternalLink} label="Map / location link" value={safeExternalUrl(b.location_link)} href={safeExternalUrl(b.location_link)} external />
                             <Row icon={MapPin} label="District / city" value={[b.district, b.city].filter(Boolean).join(" · ")} />
                             <Row icon={MapPin} label="State · PIN code" value={[b.state, b.pincode].filter(Boolean).join(" · ")} />
                             <Row icon={CalendarDays} label="Established" value={b.year_established} />

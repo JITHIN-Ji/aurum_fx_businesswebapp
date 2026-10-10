@@ -1,17 +1,18 @@
 import { createElement, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { AlertCircle, ArrowLeft, Building2, CalendarDays, CheckCircle2, Eye, Loader2, Mail, MapPin, Pencil, Phone, Plus, RefreshCw, Search, Trash2, UserRound, Users, X } from "lucide-react";
+import { AlertCircle, ArrowLeft, Building2, CalendarDays, CheckCircle2, Eye, ExternalLink, Loader2, Mail, MapPin, Pencil, Phone, Plus, RefreshCw, Search, Trash2, UserRound, Users, X } from "lucide-react";
 import INDIA_STATES_DISTRICTS from "../data/indiaStatesDistricts.json";
 import { createAdminBusiness, deleteAdminBusiness, getAdminBusiness, getAdminBusinesses, updateAdminBusiness } from "../api/adminBusiness";
-import { searchAdminStaffById } from "../api/adminStaff";
+import { getAdminStaff, searchAdminStaffById } from "../api/adminStaff";
+import GoogleMapsLinkField from "../components/GoogleMapsLinkField";
 
 const FIELDS = [
     { name: "business_name", label: "Business name", required: true, group: "Business details" },
-    { name: "business_type", label: "Business type", required: true, group: "Business details" },
+    { name: "business_type", label: "Business type", group: "Business details" },
     { name: "business_category", label: "Business category", required: true, group: "Business details" },
     { name: "year_established", label: "Year established", type: "number", group: "Business details" },
-    { name: "owner_name", label: "Owner name", required: true, group: "Owner & contact" },
-    { name: "owner_phone", label: "Owner phone", required: true, type: "tel", group: "Owner & contact" },
+    { name: "owner_name", label: "Owner name", group: "Owner & contact" },
+    { name: "owner_phone", label: "Contact number", type: "tel", group: "Owner & contact" },
     { name: "alternate_phone", label: "Alternate phone", type: "tel", group: "Owner & contact" },
     { name: "email", label: "Email", type: "email", group: "Owner & contact" },
     { name: "state", label: "State", required: true, group: "Location" },
@@ -19,6 +20,7 @@ const FIELDS = [
     { name: "city", label: "City / place", required: true, group: "Location" },
     { name: "pincode", label: "PIN code", required: true, group: "Location" },
     { name: "address", label: "Full address", required: true, wide: true, group: "Location" },
+    { name: "location_link", label: "Map / location link", type: "url", wide: true, group: "Location" },
     { name: "business_description", label: "Business description", type: "textarea", wide: true, group: "About" },
     { name: "image", label: "Business image", type: "file", wide: true, group: "About" },
 ];
@@ -28,6 +30,14 @@ const STATES = INDIA_STATES_DISTRICTS.map(({ state }) => state).sort((a, b) => a
 const normalize = (value) => String(value || "").trim().toLocaleLowerCase("en-IN");
 const display = (value) => value || "—";
 const initial = (name) => (name || "B").trim()[0].toUpperCase();
+const safeExternalUrl = (value) => {
+    try {
+        const url = new URL(value);
+        return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+    } catch {
+        return "";
+    }
+};
 
 function districtsFor(state) {
     return INDIA_STATES_DISTRICTS.find((item) => normalize(item.state) === normalize(state))?.districts || [];
@@ -86,8 +96,23 @@ function BusinessDirectory() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [reload, setReload] = useState(0);
-    const [filters, setFilters] = useState({ staffId: "", fromDate: "", toDate: "", state: "", district: "", city: "" });
+    const [filters, setFilters] = useState({ staffId: "", staffName: "", fromDate: "", toDate: "", state: "", district: "", city: "" });
     const [applied, setApplied] = useState({});
+    const [staffMembers, setStaffMembers] = useState([]);
+    const [staffFilterError, setStaffFilterError] = useState("");
+
+    useEffect(() => {
+        let active = true;
+        getAdminStaff()
+            .then((data) => {
+                if (!Array.isArray(data?.staff)) throw new Error("The staff response has an unexpected format.");
+                if (active) setStaffMembers(data.staff);
+            })
+            .catch((requestError) => {
+                if (active) setStaffFilterError(`Staff name filtering is unavailable. ${requestError.message}`);
+            });
+        return () => { active = false; };
+    }, []);
 
     useEffect(() => {
         let active = true;
@@ -115,6 +140,13 @@ function BusinessDirectory() {
     }, [applied, reload]);
 
     const filteredBusinesses = businesses.filter((business) => {
+        if (applied.staffName) {
+            const staffNameQuery = normalize(applied.staffName);
+            const matchingStaffIds = staffMembers
+                .filter((member) => normalize(member.name).includes(staffNameQuery))
+                .map((member) => normalize(member.staff_id));
+            if (!matchingStaffIds.includes(normalize(business.staff_id))) return false;
+        }
         const businessDate = business.created_at ? new Date(business.created_at) : null;
         if (applied.fromDate) {
             const from = new Date(`${applied.fromDate}T00:00:00`);
@@ -157,7 +189,7 @@ function BusinessDirectory() {
         setApplied(Object.fromEntries(Object.entries(filters).filter(([, value]) => value.trim())));
     };
     const clear = () => {
-        setFilters({ staffId: "", fromDate: "", toDate: "", state: "", district: "", city: "" });
+        setFilters({ staffId: "", staffName: "", fromDate: "", toDate: "", state: "", district: "", city: "" });
         setApplied({});
     };
 
@@ -178,6 +210,8 @@ function BusinessDirectory() {
             <Panel delay={40}>
                 <form onSubmit={search} className="grid items-end gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <Input label="Staff ID" value={filters.staffId} onChange={setFilter("staffId")} />
+                    <Input label="Staff name" value={filters.staffName} onChange={setFilter("staffName")}
+                        options={[...new Set(staffMembers.map((member) => member.name).filter(Boolean))].sort((a, b) => a.localeCompare(b))} />
                     <Input label="From date" type="date" value={filters.fromDate} onChange={setFilter("fromDate")} />
                     <Input label="To date" type="date" value={filters.toDate} onChange={setFilter("toDate")} />
                     <Input label="State" value={filters.state} onChange={setFilter("state")} options={STATES} />
@@ -191,6 +225,7 @@ function BusinessDirectory() {
             </Panel>
 
             <ErrorMessage>{error}</ErrorMessage>
+            <ErrorMessage>{staffFilterError}</ErrorMessage>
             {loading ? <Loading text={applied.staffId ? "Searching staff businesses…" : "Loading businesses…"} /> : filteredBusinesses.length ? (
                 <Panel className="overflow-hidden !p-0" delay={100}>
                     <div className="flex items-center justify-between gap-3 border-b border-[var(--ad-line)] px-6 py-4">
@@ -198,8 +233,8 @@ function BusinessDirectory() {
                         <span className="ab-chip">Showing {filteredBusinesses.length} of {total.toLocaleString("en-IN")}</span>
                     </div>
                     <div className="overflow-x-auto">
-                        <table className="ab-table w-full min-w-[950px] text-left text-sm">
-                            <thead><tr><th>Business</th><th>Category</th><th>Owner</th><th>Location</th><th>Staff</th><th className="text-right">Actions</th></tr></thead>
+                        <table className="ab-table w-full min-w-[1050px] text-left text-sm">
+                            <thead><tr><th>Business</th><th>Category</th><th>Owner</th><th>Location</th><th>Map link</th><th>Staff</th><th className="text-right">Actions</th></tr></thead>
                             <tbody>
                                 {filteredBusinesses.map((business) => (
                                     <tr key={business.id}>
@@ -215,6 +250,14 @@ function BusinessDirectory() {
                                         <td><span className="ab-chip">{display(business.business_category)}</span></td>
                                         <td>{display(business.owner_name)}<p className="mt-0.5 flex items-center gap-1 text-xs text-[var(--ad-muted)]"><Phone size={11} />{display(business.owner_phone)}</p></td>
                                         <td>{[business.city, business.district].filter(Boolean).join(", ") || "—"}<p className="mt-0.5 text-xs text-[var(--ad-muted)]">{display(business.state)}</p></td>
+                                        <td>
+                                            {safeExternalUrl(business.location_link) ? (
+                                                <a href={safeExternalUrl(business.location_link)} target="_blank" rel="noreferrer"
+                                                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--ad-gold)] hover:underline">
+                                                    <ExternalLink size={13} /> Open map
+                                                </a>
+                                            ) : "—"}
+                                        </td>
                                         <td><span className="inline-flex min-w-9 justify-center rounded bg-[var(--ad-bg)] px-2.5 py-1 font-bold">{display(business.staff_id)}</span></td>
                                         <td>
                                             <div className="flex items-center justify-end gap-2">
@@ -318,6 +361,14 @@ function BusinessForm({ editing = false }) {
                         <div className="grid gap-5 p-6 sm:grid-cols-2">
                             {FIELDS.filter((field) => field.group === group).map((field) => {
                                 const options = field.name === "state" ? STATES : field.name === "district" ? districtsFor(values.state) : undefined;
+                                if (field.name === "location_link") {
+                                    return (
+                                        <GoogleMapsLinkField key={field.name} value={values.location_link}
+                                            onChange={(locationLink) => setValues((current) => ({ ...current, location_link: locationLink }))}
+                                            businessDetails={values} inputClassName="ab-input w-full"
+                                            buttonClassName="inline-flex h-9 items-center gap-2 rounded border border-[var(--ad-line)] bg-[var(--ad-bg)] px-3 text-xs font-semibold text-[var(--ad-gold)] transition hover:border-[var(--ad-gold)]" />
+                                    );
+                                }
                                 if (field.name === "image") {
                                     return (
                                         <div key={field.name} className="sm:col-span-2">
@@ -392,6 +443,7 @@ function BusinessDetails() {
     if (!business) return <div className="space-y-4"><ErrorMessage>{error || "Business not found."}</ErrorMessage><Link to="/admin/businesses" className="inline-flex items-center gap-2 text-sm font-semibold"><ArrowLeft size={16} /> Business directory</Link></div>;
 
     const b = business;
+    const locationLink = safeExternalUrl(b.location_link);
     return (
         <div className="mx-auto max-w-5xl space-y-6">
             <style>{CSS}</style>
@@ -426,7 +478,7 @@ function BusinessDetails() {
                     <SectionTitle>Owner & contact</SectionTitle>
                     <div className="space-y-3 p-6">
                         <Tile icon={UserRound} label="Owner" value={b.owner_name} />
-                        <Tile icon={Phone} label="Owner phone" value={b.owner_phone} />
+                        <Tile icon={Phone} label="Contact number" value={b.owner_phone} />
                         <Tile icon={Phone} label="Alternate phone" value={b.alternate_phone} />
                         <Tile icon={Mail} label="Email" value={b.email} />
                     </div>
@@ -438,6 +490,16 @@ function BusinessDetails() {
                         <Tile icon={MapPin} label="District / city" value={[b.district, b.city].filter(Boolean).join(" · ")} />
                         <Tile icon={MapPin} label="PIN code" value={b.pincode} />
                         <Tile icon={MapPin} label="Address" value={b.address} />
+                        {locationLink ? (
+                            <a href={locationLink} target="_blank" rel="noreferrer"
+                                className="flex gap-3.5 rounded border border-[var(--ad-line)] p-4 text-[var(--ad-gold)] hover:bg-[var(--ad-bg)]">
+                                <span className="grid size-9 shrink-0 place-items-center rounded bg-[var(--ad-bg)]"><ExternalLink size={17} /></span>
+                                <span className="min-w-0">
+                                    <span className="block text-xs font-semibold uppercase tracking-wide text-[var(--ad-muted)]">Map / location link</span>
+                                    <span className="mt-0.5 block break-all text-sm font-semibold">{locationLink}</span>
+                                </span>
+                            </a>
+                        ) : <Tile icon={ExternalLink} label="Map / location link" value={b.location_link} />}
                     </div>
                 </Panel>
             </div>
@@ -446,7 +508,7 @@ function BusinessDetails() {
                 <SectionTitle>About</SectionTitle>
                 <div className="grid gap-3 p-6 sm:grid-cols-3">
                     <Tile icon={CalendarDays} label="Year established" value={b.year_established} />
-                    <Tile icon={Users} label="Staff database ID" value={b.staff_id} />
+                    <Tile icon={Users} label="Staff ID" value={b.staff_id} />
                     <Tile icon={CalendarDays} label="Created" value={b.created_at && new Date(b.created_at).toLocaleString("en-IN")} />
                     <div className="rounded border border-[var(--ad-line)] p-4 sm:col-span-3">
                         <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ad-muted)]">Description</p>

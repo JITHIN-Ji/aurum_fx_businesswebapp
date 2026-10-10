@@ -110,3 +110,27 @@ export async function loginStaff({ staffId, password, remember }) {
 export function getStaffProfile() {
     return request("/staff/profile", { auth: true });
 }
+
+export function updateStaffProfile({ email, address }) {
+    return request("/staff/profile", {
+        auth: true,
+        method: "PUT",
+        body: JSON.stringify({ email, address }),
+    });
+}
+
+export function getStaffKycStatus() {
+    return request("/staff/kyc-status", { auth: true });
+}
+
+export function uploadStaffKyc({ aadhaar_front_image, aadhaar_back_image }) {
+    const formData = new FormData();
+    formData.append("aadhaar_front_image", aadhaar_front_image);
+    formData.append("aadhaar_back_image", aadhaar_back_image);
+
+    return request("/staff/kyc", {
+        auth: true,
+        method: "POST",
+        body: formData,
+    });
+}

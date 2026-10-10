@@ -1,21 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Bell, CalendarDays, LayoutDashboard, LogOut, Menu, MessageSquare, Plus, Store, UserRound, X } from "lucide-react";
-import ThemeToggle from "../components/ThemeToggle";
-import { authenticatedStaffRequest, clearStaffToken, getStaffToken } from "../api/staffAuth";
+import { Bell, CalendarDays, FileCheck2, LayoutDashboard, LogOut, Menu, MessageSquare, Plus, Store, UserRound, X } from "lucide-react";
+import { authenticatedStaffRequest, clearStaffToken, getStaffProfile, getStaffToken } from "../api/staffAuth";
 import { getUnreadMessageCount } from "../api/messages";
 
 // Add a page: one item here + one <Route> in App.jsx
 const STAFF_NAV = [
     { name: "Dashboard", to: "/staff/dashboard", icon: LayoutDashboard, title: "Dashboard", subtitle: "Your visits and records at a glance" },
-    { name: "Business directory", to: "/staff/businesses", icon: Store, title: "Business directory", subtitle: "Browse and manage recorded businesses" },
     { name: "Add business", to: "/staff/businesses/new", icon: Plus, title: "Add a business", subtitle: "Create a business record" },
-    { name: "Messages & enquiries", to: "/staff/messages", icon: MessageSquare, title: "Messages & enquiries", subtitle: "Contact the admin team" },
+    { name: "Business directory", to: "/staff/businesses", icon: Store, title: "Business directory", subtitle: "Browse and manage recorded businesses" },
+    { name: "Aadhaar & KYC", to: "/staff/kyc", icon: FileCheck2, title: "Aadhaar & KYC", subtitle: "Submit Aadhaar documents and check verification status" },
     { name: "Profile", to: "/staff/profile", icon: UserRound, title: "Profile", subtitle: "Update your staff profile" },
+    { name: "Messages & enquiries", to: "/staff/messages", icon: MessageSquare, title: "Messages & enquiries", subtitle: "Contact the admin team" },
 ];
 
 export default function StaffLayout() {
     const [open, setOpen] = useState(false);
+    const [staffProfile, setStaffProfile] = useState(null);
+    const [staffProfileError, setStaffProfileError] = useState("");
     const [unreadCount, setUnreadCount] = useState(0);
     const [unreadError, setUnreadError] = useState("");
     const unreadCountRef = useRef(0);
@@ -26,6 +28,21 @@ export default function StaffLayout() {
     const token = getStaffToken();
 
     useEffect(() => setOpen(false), [pathname]);
+
+    useEffect(() => {
+        let active = true;
+        getStaffProfile()
+            .then((profile) => {
+                if (active) {
+                    setStaffProfile(profile);
+                    setStaffProfileError("");
+                }
+            })
+            .catch((requestError) => {
+                if (active) setStaffProfileError(requestError.message);
+            });
+        return () => { active = false; };
+    }, []);
 
     const refreshUnreadCount = useCallback(async () => {
         try {
@@ -68,6 +85,11 @@ export default function StaffLayout() {
                 : { title: "Business details", subtitle: "Review a business record" }
             : { title: "Field staff", subtitle: "" });
     const today = new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+    const staffName = staffProfile?.name?.trim() || (staffProfileError ? "Staff details unavailable" : "Loading staff name…");
+    const staffId = staffProfile?.staff_id || (staffProfileError ? "Staff ID unavailable" : "Loading staff ID…");
+    const staffInitials = staffProfile?.name?.trim()
+        ? staffProfile.name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase()
+        : "";
 
     useEffect(() => {
         const handleUnauthorized = () => navigate("/staff", { replace: true });
@@ -120,12 +142,15 @@ export default function StaffLayout() {
 
                 <div className="p-4 border-t border-[#F3ECDA]/10">
                     <div className="flex items-center gap-3 px-2 mb-3">
-                        <span className="size-10 grid place-items-center bg-[#D9AE4B] text-[#14110B] text-sm font-semibold">FS</span>
+                        <span className="size-10 grid place-items-center rounded-full bg-[#D9AE4B] text-[#14110B] text-sm font-semibold">
+                            {staffInitials || <UserRound size={18} />}
+                        </span>
                         <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">Field staff</p>
-                            <p className="text-xs text-[#F3ECDA]/55">Signed in</p>
+                            <p className="text-sm font-medium truncate" title={staffName}>{staffName}</p>
+                            <p className="text-xs text-[#F3ECDA]/55 truncate" title={staffId}>ID: {staffId}</p>
                         </div>
                     </div>
+                    {staffProfileError && <p role="alert" className="mb-2 px-2 text-xs text-red-200">Could not load staff details: {staffProfileError}</p>}
                     <button onClick={signOut} className="w-full flex items-center gap-3 px-3 h-10 text-sm text-[#F3ECDA]/75 hover:bg-white/5 hover:text-white transition-colors">
                         <LogOut size={17} strokeWidth={1.7} /> Sign out
                     </button>
@@ -151,8 +176,10 @@ export default function StaffLayout() {
                             <Bell size={18} strokeWidth={1.7} />
                             <span className="afx-pulse absolute top-2 right-2 size-2 rounded-full bg-[var(--d-gold)]" />
                         </button>
-                        <ThemeToggle />
-                        <span className="hidden sm:grid place-items-center size-10 bg-[var(--d-gold)] text-white dark:text-[#14110B] text-sm font-semibold" title="Field staff">FS</span>
+                        <div className="hidden min-w-0 max-w-36 sm:block" title={staffProfileError || `${staffName} · ID: ${staffId}`}>
+                            <p className="truncate text-sm font-semibold leading-tight">{staffName}</p>
+                            <p className="mt-1 truncate text-xs text-[var(--d-muted)]">ID: {staffId}</p>
+                        </div>
                     </div>
                 </header>
                 <main className="flex-1 px-5 md:px-8 py-8"><div key={pathname} className="afx-page"><Outlet /></div></main>

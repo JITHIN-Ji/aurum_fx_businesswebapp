@@ -1,7 +1,9 @@
 import { createElement, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { AlertCircle, ArrowLeft, Building2, CalendarDays, Eye, Loader2, Mail, MapPin, Pencil, Phone, RefreshCw, Search, ShieldCheck, UserCheck, UserX, Users } from "lucide-react";
-import { getAdminStaff, getAdminStaffMember, updateAdminStaffProfile, updateAdminStaffStatus } from "../api/adminStaff";
+import { AlertCircle, ArrowLeft, Building2, CalendarDays, Eye, Loader2, Mail, MapPin, Pencil, Phone, Printer, RefreshCw, Search, ShieldCheck, UserCheck, UserX, Users } from "lucide-react";
+import { getAdminStaff, getAdminStaffMember, getAdminStaffPrint, updateAdminStaffProfile, updateAdminStaffStatus } from "../api/adminStaff";
+import AadhaarImageUpload from "../components/AadhaarImageUpload";
+import indiaStatesDistricts from "../data/indiaStatesDistricts.json";
 
 const formatDate = (value) => {
     if (!value) return "Not available";
@@ -81,15 +83,24 @@ function Stat({ label, value, icon, tone, loading }) {
 const STRIP = "as-panel !p-0 grid divide-y divide-[var(--ad-line)] sm:grid-cols-3 sm:divide-x sm:divide-y-0";
 
 const FILTERS = [["all", "All"], ["active", "Active"], ["inactive", "Inactive"]];
+const STAFF_STATES = indiaStatesDistricts.map(({ state }) => state);
+const STAFF_DISTRICTS = [...new Set(indiaStatesDistricts.flatMap(({ districts }) => districts))].sort((a, b) => a.localeCompare(b));
 
 function StaffList() {
     const [staff, setStaff] = useState([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [printError, setPrintError] = useState("");
+    const [printing, setPrinting] = useState(false);
     const [reload, setReload] = useState(0);
     const [search, setSearch] = useState("");
     const [filter, setFilter] = useState("all");
+    const [stateSearch, setStateSearch] = useState("");
+    const [districtSearch, setDistrictSearch] = useState("");
+
+    const selectedState = indiaStatesDistricts.find(({ state }) => state.toLowerCase() === stateSearch.trim().toLowerCase());
+    const districtOptions = selectedState?.districts || STAFF_DISTRICTS;
 
     useEffect(() => {
         let active = true;
@@ -99,7 +110,13 @@ function StaffList() {
             .then((data) => {
                 if (!Array.isArray(data?.staff)) throw new Error("The staff response has an unexpected format.");
                 if (active) {
-                    setStaff(data.staff);
+                    setStaff([...data.staff].sort((first, second) => {
+                        const firstCreated = Date.parse(first.created_at || "");
+                        const secondCreated = Date.parse(second.created_at || "");
+                        if (!Number.isFinite(firstCreated)) return Number.isFinite(secondCreated) ? 1 : 0;
+                        if (!Number.isFinite(secondCreated)) return -1;
+                        return secondCreated - firstCreated;
+                    }));
                     setTotal(Number(data.total) || data.staff.length);
                 }
             })
@@ -110,13 +127,48 @@ function StaffList() {
 
     const updateMember = (updated) => setStaff((current) => current.map((member) => member.id === updated.id ? updated : member));
 
+    const printStaff = async () => {
+        setPrintError("");
+        const printWindow = window.open("", "_blank");
+        if (!printWindow) {
+            setPrintError("Allow pop-ups for this site to open the staff print report.");
+            return;
+        }
+
+        setPrinting(true);
+        try {
+            const html = await getAdminStaffPrint();
+            if (typeof html !== "string" || !/<html[\s>]/i.test(html)) {
+                throw new Error("The staff print endpoint returned an invalid HTML report.");
+            }
+            printWindow.document.open();
+            printWindow.document.write(html);
+            printWindow.document.close();
+        } catch (requestError) {
+            printWindow.close();
+            setPrintError(requestError.message);
+        } finally {
+            setPrinting(false);
+        }
+    };
+
     const activeCount = staff.filter((m) => isActive(m.status)).length;
+    const clearFilters = () => {
+        setSearch("");
+        setFilter("all");
+        setStateSearch("");
+        setDistrictSearch("");
+    };
     const visible = useMemo(() => {
         const q = search.trim().toLowerCase();
+        const stateQuery = stateSearch.trim().toLowerCase();
+        const districtQuery = districtSearch.trim().toLowerCase();
         return staff.filter((m) =>
             (filter === "all" || (filter === "active") === isActive(m.status))
-            && (!q || [m.name, m.staff_id, m.email, m.phone].some((v) => String(v || "").toLowerCase().includes(q))));
-    }, [staff, search, filter]);
+            && (!q || [m.name, m.staff_id, m.email, m.phone, m.state, m.district].some((v) => String(v || "").toLowerCase().includes(q)))
+            && (!stateQuery || String(m.state || "").toLowerCase().includes(stateQuery))
+            && (!districtQuery || String(m.district || "").toLowerCase().includes(districtQuery)));
+    }, [staff, search, filter, stateSearch, districtSearch]);
 
     return (
         <div className="mx-auto max-w-7xl space-y-6">
@@ -126,9 +178,15 @@ function StaffList() {
                     <h2 className="text-3xl font-bold">Staff management</h2>
                     <p className="mt-1 text-[var(--ad-muted)]">Review staff accounts and manage access to the field portal.</p>
                 </div>
-                <button type="button" onClick={() => setReload((value) => value + 1)} disabled={loading} className="as-btn">
-                    <RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Refresh
-                </button>
+                <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={printStaff} disabled={printing} className="as-btn">
+                        {printing ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
+                        {printing ? "Preparing report…" : "Print staff"}
+                    </button>
+                    <button type="button" onClick={() => setReload((value) => value + 1)} disabled={loading} className="as-btn">
+                        <RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Refresh
+                    </button>
+                </div>
             </div>
 
             <div className={STRIP}>
@@ -138,19 +196,49 @@ function StaffList() {
             </div>
 
             <ErrorMessage>{error}</ErrorMessage>
+            <ErrorMessage>{printError}</ErrorMessage>
 
             {loading ? <p className="py-10 text-center text-sm text-[var(--ad-muted)]">Loading staff accounts…</p> : staff.length ? (
                 <Panel className="overflow-hidden !p-0" delay={200}>
-                    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--ad-line)] p-5">
-                        <label className="relative block w-full sm:w-80">
-                            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--ad-muted)]" />
-                            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, ID, email or phone…" className="as-input" aria-label="Search staff" />
-                        </label>
-                        <div className="inline-flex rounded bg-[var(--ad-bg)] p-1" role="tablist">
-                            {FILTERS.map(([id, label]) => (
-                                <button key={id} type="button" role="tab" aria-selected={filter === id} onClick={() => setFilter(id)}
-                                    className={`rounded px-4 py-1.5 text-sm font-semibold transition ${filter === id ? "bg-[#5A1A2B] text-white shadow-md" : "text-[var(--ad-muted)] hover:text-[var(--ad-text)]"}`}>{label}</button>
-                            ))}
+                    <div className="space-y-4 border-b border-[var(--ad-line)] p-5">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                            <label className="relative block w-full sm:w-80">
+                                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--ad-muted)]" />
+                                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, ID, email or phone…" className="as-input" aria-label="Search staff" />
+                            </label>
+                            <div className="inline-flex rounded bg-[var(--ad-bg)] p-1" role="tablist" aria-label="Filter by staff status">
+                                {FILTERS.map(([id, label]) => (
+                                    <button key={id} type="button" role="tab" aria-selected={filter === id} onClick={() => setFilter(id)}
+                                        className={`rounded px-4 py-1.5 text-sm font-semibold transition ${filter === id ? "bg-[#5A1A2B] text-white shadow-md" : "text-[var(--ad-muted)] hover:text-[var(--ad-text)]"}`}>{label}</button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap items-end gap-3">
+                            <label className="block w-full text-xs font-semibold text-[var(--ad-muted)] sm:w-56">
+                                State
+                                <input list="staff-state-options" value={stateSearch}
+                                    onChange={(event) => {
+                                        setStateSearch(event.target.value);
+                                        setDistrictSearch("");
+                                    }}
+                                    placeholder="Type or select a state"
+                                    className="ae-input mt-1.5 !h-10" aria-label="Filter staff by state" />
+                                <datalist id="staff-state-options">
+                                    {STAFF_STATES.map((state) => <option key={state} value={state} />)}
+                                </datalist>
+                            </label>
+                            <label className="block w-full text-xs font-semibold text-[var(--ad-muted)] sm:w-56">
+                                District
+                                <input list="staff-district-options" value={districtSearch} onChange={(event) => setDistrictSearch(event.target.value)}
+                                    placeholder={stateSearch ? "Type or select a district" : "Type or select a district"}
+                                    className="ae-input mt-1.5 !h-10" aria-label="Filter staff by district" />
+                                <datalist id="staff-district-options">
+                                    {districtOptions.map((district) => <option key={district} value={district} />)}
+                                </datalist>
+                            </label>
+                            {(search || filter !== "all" || stateSearch || districtSearch) && (
+                                <button type="button" onClick={clearFilters} className="as-btn !h-10 !px-3 !text-xs">Clear filters</button>
+                            )}
                         </div>
                     </div>
                     {visible.length ? (
@@ -173,6 +261,8 @@ function StaffList() {
                                             <td>
                                                 <p className="flex items-center gap-1.5"><Mail size={13} className="text-[var(--ad-muted)]" />{display(member.email)}</p>
                                                 <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--ad-muted)]"><Phone size={12} />{display(member.phone)}</p>
+                                                <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--ad-muted)]"><Phone size={12} />Guardian: {display(member.guardian_contact_number)}</p>
+                                                <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--ad-muted)]"><MapPin size={12} />{[member.district, member.state].filter(Boolean).join(", ") || "Location not provided"}</p>
                                             </td>
                                             <td>
                                                 <span className="inline-flex min-w-9 items-center justify-center rounded bg-[var(--ad-bg)] px-2.5 py-1 font-bold">
@@ -192,7 +282,7 @@ function StaffList() {
                                 </tbody>
                             </table>
                         </div>
-                    ) : <p className="py-10 text-center text-sm text-[var(--ad-muted)]">No staff match your search.</p>}
+                    ) : <p className="py-10 text-center text-sm text-[var(--ad-muted)]">No staff match these filters.</p>}
                     <p className="border-t border-[var(--ad-line)] px-5 py-3 text-xs text-[var(--ad-muted)]">Showing {visible.length} of {staff.length} staff</p>
                 </Panel>
             ) : !error ? (
@@ -280,8 +370,32 @@ function StaffDetails() {
                         <div className="mt-5 grid gap-4 sm:grid-cols-2">
                             <DetailRow icon={Mail} label="Email" value={member.email} />
                             <DetailRow icon={Phone} label="Phone" value={member.phone} />
+                            <DetailRow icon={Phone} label="Guardian contact number" value={member.guardian_contact_number} />
                             <DetailRow icon={MapPin} label="Address" value={member.address} />
+                            <DetailRow icon={MapPin} label="State" value={member.state} />
+                            <DetailRow icon={MapPin} label="District" value={member.district} />
+                            <DetailRow icon={ShieldCheck} label="Aadhaar number" value={member.aadhaar_number} />
                             <DetailRow icon={ShieldCheck} label="Role and status" value={`${display(member.role)} · ${display(member.status)}`} />
+                        </div>
+                    </Panel>
+
+                    <Panel delay={270}>
+                        <h3 className="text-xl font-bold">Aadhaar documents</h3>
+                        <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                            {[
+                                ["Aadhaar front", member.aadhaar_front_image],
+                                ["Aadhaar back", member.aadhaar_back_image],
+                            ].map(([label, imageUrl]) => (
+                                <div key={label} className="rounded border border-[var(--ad-line)] p-4">
+                                    <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-[var(--ad-muted)]">{label}</p>
+                                    {imageUrl ? (
+                                        <a href={imageUrl} target="_blank" rel="noreferrer" className="block">
+                                            <img src={imageUrl} alt={label} className="max-h-64 w-full rounded object-contain" />
+                                            <span className="mt-2 inline-block text-sm font-semibold text-[var(--ad-gold)]">Open image</span>
+                                        </a>
+                                    ) : <p className="text-sm text-[var(--ad-muted)]">Not provided</p>}
+                                </div>
+                            ))}
                         </div>
                     </Panel>
 
@@ -316,7 +430,20 @@ function StaffDetails() {
     );
 }
 
-const EMPTY_STAFF_PROFILE = { name: "", email: "", phone: "", address: "", password: "", confirmPassword: "" };
+const EMPTY_STAFF_PROFILE = {
+    name: "",
+    email: "",
+    phone: "",
+    guardian_contact_number: "",
+    address: "",
+    password: "",
+    confirmPassword: "",
+    aadhaar_number: "",
+    state: "",
+    district: "",
+    aadhaar_front_image: null,
+    aadhaar_back_image: null,
+};
 
 function AdminStaffEditForm() {
     const { staffId } = useParams();
@@ -325,11 +452,14 @@ function AdminStaffEditForm() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
+    const [loadError, setLoadError] = useState("");
+    const [existingImages, setExistingImages] = useState({ front: "", back: "" });
+    const districts = indiaStatesDistricts.find(({ state }) => state === values.state)?.districts || [];
 
     useEffect(() => {
         let active = true;
         setLoading(true);
-        setError("");
+        setLoadError("");
         getAdminStaffMember(staffId)
             .then((member) => {
                 if (active) {
@@ -338,18 +468,44 @@ function AdminStaffEditForm() {
                         name: member.name || "",
                         email: member.email || "",
                         phone: member.phone || "",
+                        guardian_contact_number: member.guardian_contact_number || "",
                         address: member.address || "",
+                        aadhaar_number: member.aadhaar_number || "",
+                        state: member.state || "",
+                        district: member.district || "",
+                    });
+                    setExistingImages({
+                        front: member.aadhaar_front_image || "",
+                        back: member.aadhaar_back_image || "",
                     });
                 }
             })
-            .catch((requestError) => { if (active) setError(requestError.message); })
+            .catch((requestError) => { if (active) setLoadError(requestError.message); })
             .finally(() => { if (active) setLoading(false); });
         return () => { active = false; };
     }, [staffId]);
 
     const updateField = (event) => {
-        const { name, value } = event.target;
-        setValues((current) => ({ ...current, [name]: value }));
+        const { name } = event.target;
+        const value = name === "aadhaar_number"
+            ? event.target.value.replace(/\D/g, "").slice(0, 12)
+            : event.target.value;
+        setValues((current) => ({
+            ...current,
+            [name]: value,
+            ...(name === "state" ? { district: "" } : {}),
+        }));
+        setError("");
+    };
+
+    const updateFile = (event) => {
+        const { name, files } = event.target;
+        setValues((current) => ({ ...current, [name]: files?.[0] || null }));
+        setError("");
+    };
+
+    const removeFile = (name) => {
+        setValues((current) => ({ ...current, [name]: null }));
         setError("");
     };
 
@@ -364,6 +520,10 @@ function AdminStaffEditForm() {
             setError("The new password and confirmation do not match.");
             return;
         }
+        if (values.aadhaar_number && !/^\d{12}$/.test(values.aadhaar_number)) {
+            setError("Aadhaar number must contain exactly 12 digits.");
+            return;
+        }
 
         setSaving(true);
         try {
@@ -371,7 +531,13 @@ function AdminStaffEditForm() {
                 name: values.name.trim(),
                 email: values.email.trim(),
                 phone: values.phone.trim(),
+                guardian_contact_number: values.guardian_contact_number.trim(),
                 address: values.address.trim(),
+                aadhaar_number: values.aadhaar_number.trim(),
+                state: values.state,
+                district: values.district,
+                aadhaar_front_image: values.aadhaar_front_image,
+                aadhaar_back_image: values.aadhaar_back_image,
             };
             if (values.password) profile.password = values.password;
             const updated = await updateAdminStaffProfile(staffId, profile);
@@ -393,8 +559,8 @@ function AdminStaffEditForm() {
                 <h2 className="text-3xl font-bold">Edit staff profile</h2>
                 <p className="mt-1 text-[var(--ad-muted)]">Update the staff member’s contact details or set a new password.</p>
             </div>
-            <ErrorMessage>{error}</ErrorMessage>
-            {loading ? <p className="py-10 text-center text-sm text-[var(--ad-muted)]">Loading staff profile…</p> : (
+            <ErrorMessage>{loadError}</ErrorMessage>
+            {loading ? <p className="py-10 text-center text-sm text-[var(--ad-muted)]">Loading staff profile…</p> : !loadError ? (
                 <Panel className="overflow-hidden !p-0">
                     <h3 className="border-b border-[var(--ad-line)] px-6 py-4 text-lg font-bold">Profile information</h3>
                     <form onSubmit={submit} className="space-y-5 p-6">
@@ -411,10 +577,48 @@ function AdminStaffEditForm() {
                                 Phone <span className="text-rose-600">*</span>
                                 <input name="phone" type="tel" required value={values.phone} onChange={updateField} autoComplete="tel" className="ae-input mt-1.5" />
                             </label>
+                            <label className="block text-sm font-semibold">
+                                Guardian contact number
+                                <input name="guardian_contact_number" type="tel" value={values.guardian_contact_number}
+                                    onChange={updateField} autoComplete="tel" className="ae-input mt-1.5" />
+                            </label>
+                            <label className="block text-sm font-semibold">
+                                Aadhaar number
+                                <input name="aadhaar_number" type="text" inputMode="numeric" pattern="[0-9]{12}" maxLength={12}
+                                    value={values.aadhaar_number} onChange={updateField} className="ae-input mt-1.5" />
+                                <span className="mt-1 block text-xs font-normal text-[var(--ad-muted)]">Leave blank or enter exactly 12 digits.</span>
+                            </label>
+                            <label className="block text-sm font-semibold">
+                                State
+                                <select name="state" value={values.state} onChange={updateField} className="ae-input mt-1.5">
+                                    <option value="">Select state</option>
+                                    {indiaStatesDistricts.map(({ state }) => <option key={state} value={state}>{state}</option>)}
+                                </select>
+                            </label>
+                            <label className="block text-sm font-semibold">
+                                District
+                                <select name="district" value={values.district} onChange={updateField} disabled={!values.state}
+                                    className="ae-input mt-1.5 disabled:cursor-not-allowed disabled:bg-gray-100">
+                                    <option value="">Select district</option>
+                                    {districts.map((district) => <option key={district} value={district}>{district}</option>)}
+                                </select>
+                            </label>
                             <label className="block text-sm font-semibold sm:col-span-2">
                                 Address <span className="text-rose-600">*</span>
                                 <textarea name="address" required rows={4} value={values.address} onChange={updateField} autoComplete="street-address" className="ae-input mt-1.5 !h-auto py-3" />
                             </label>
+                        </div>
+                        <div className="border-t border-[var(--ad-line)] pt-5">
+                            <h4 className="font-bold">Aadhaar documents</h4>
+                            <p className="mt-1 text-sm text-[var(--ad-muted)]">Existing images will be kept unless you choose a replacement.</p>
+                            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                                <AadhaarImageUpload name="aadhaar_front_image" title="Front side"
+                                    file={values.aadhaar_front_image} imageUrl={existingImages.front}
+                                    onChange={updateFile} onRemove={removeFile} />
+                                <AadhaarImageUpload name="aadhaar_back_image" title="Back side"
+                                    file={values.aadhaar_back_image} imageUrl={existingImages.back}
+                                    onChange={updateFile} onRemove={removeFile} />
+                            </div>
                         </div>
                         <div className="border-t border-[var(--ad-line)] pt-5">
                             <h4 className="font-bold">Change password</h4>
@@ -430,13 +634,14 @@ function AdminStaffEditForm() {
                                 </label>
                             </div>
                         </div>
+                        <ErrorMessage>{error}</ErrorMessage>
                         <button type="submit" disabled={saving || loading} className="as-btn !h-11 !border-[#5A1A2B] !bg-[#5A1A2B] !px-6 !text-white hover:!bg-[#6B2034]">
                             {saving && <Loader2 size={17} className="animate-spin" />}
                             {saving ? "Saving changes…" : "Save changes"}
                         </button>
                     </form>
                 </Panel>
-            )}
+            ) : null}
         </div>
     );
 }

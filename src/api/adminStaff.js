@@ -4,6 +4,10 @@ export function getAdminStaff() {
     return authenticatedAdminRequest("/admin/staff");
 }
 
+export function getAdminStaffPrint() {
+    return authenticatedAdminRequest("/admin/staff/print");
+}
+
 export function getAdminStaffMember(staffId) {
     return authenticatedAdminRequest(`/admin/staff/${encodeURIComponent(staffId)}`);
 }
@@ -13,18 +17,49 @@ export function searchAdminStaffById(staffId) {
 }
 
 export function updateAdminStaffProfile(staffId, profile) {
+    const formData = new FormData();
+    ["name", "email", "phone", "guardian_contact_number", "address", "password", "aadhaar_number", "state", "district"].forEach((field) => {
+        if (profile[field] !== undefined && profile[field] !== null) formData.append(field, profile[field]);
+    });
+    ["aadhaar_front_image", "aadhaar_back_image"].forEach((field) => {
+        if (profile[field]) formData.append(field, profile[field]);
+    });
+
     return authenticatedAdminRequest(`/admin/staff/${encodeURIComponent(staffId)}/profile`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(profile),
+        body: formData,
     });
 }
 
-export function registerAdminStaff({ name, email, password, phone, address }) {
+export function registerAdminStaff({
+    name,
+    email,
+    password,
+    phone,
+    guardian_contact_number,
+    address,
+    aadhaar_number,
+    state,
+    district,
+    aadhaar_front_image,
+    aadhaar_back_image,
+}) {
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("email", email);
+    formData.append("password", password);
+    formData.append("phone", phone);
+    formData.append("guardian_contact_number", guardian_contact_number);
+    formData.append("address", address);
+    formData.append("aadhaar_number", aadhaar_number);
+    formData.append("state", state);
+    formData.append("district", district);
+    if (aadhaar_front_image) formData.append("aadhaar_front_image", aadhaar_front_image);
+    if (aadhaar_back_image) formData.append("aadhaar_back_image", aadhaar_back_image);
+
     return authenticatedAdminRequest("/admin/staff/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, phone, address }),
+        body: formData,
     });
 }
 

@@ -3,15 +3,16 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { AlertCircle, ArrowLeft, Building2, Loader2, MapPin, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import INDIA_STATES_DISTRICTS from "../data/indiaStatesDistricts.json";
 import { createStaffBusiness, deleteStaffBusiness, getStaffBusiness, getStaffBusinesses, updateStaffBusiness } from "../api/staffBusiness";
+import GoogleMapsLinkField from "../components/GoogleMapsLinkField";
 
 const GROUPS = ["Business", "Owner & contact", "Location", "About"];
 const BUSINESS_FIELDS = [
     { name: "business_name", label: "Business name", required: true, group: 0 },
-    { name: "business_type", label: "Business type", required: true, group: 0 },
+    { name: "business_type", label: "Business type", group: 0 },
     { name: "business_category", label: "Business category", required: true, group: 0 },
     { name: "year_established", label: "Year established", type: "number", group: 0 },
-    { name: "owner_name", label: "Owner name", required: true, group: 1 },
-    { name: "owner_phone", label: "Owner phone", required: true, type: "tel", group: 1 },
+    { name: "owner_name", label: "Owner name", group: 1 },
+    { name: "owner_phone", label: "Contact number", type: "tel", group: 1 },
     { name: "alternate_phone", label: "Alternate phone", type: "tel", group: 1 },
     { name: "email", label: "Email", type: "email", group: 1 },
     { name: "state", label: "State", required: true, group: 2 },
@@ -19,12 +20,21 @@ const BUSINESS_FIELDS = [
     { name: "city", label: "City / place", required: true, group: 2 },
     { name: "pincode", label: "PIN code", required: true, group: 2 },
     { name: "address", label: "Full address", required: true, wide: true, group: 2 },
+    { name: "location_link", label: "Map / location link", type: "url", wide: true, group: 2 },
     { name: "business_description", label: "Business description", type: "textarea", wide: true, group: 3 },
 ];
 
 const EMPTY_FORM = Object.fromEntries(BUSINESS_FIELDS.map(({ name }) => [name, ""]));
 const INDIA_STATES = INDIA_STATES_DISTRICTS.map(({ state }) => state).sort((a, b) => a.localeCompare(b));
 const normalizeLocation = (value) => value.trim().toLocaleLowerCase("en-IN");
+const safeExternalUrl = (value) => {
+    try {
+        const url = new URL(value);
+        return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+    } catch {
+        return "";
+    }
+};
 
 function districtsForState(state) {
     return INDIA_STATES_DISTRICTS.find((item) => normalizeLocation(item.state) === normalizeLocation(state))?.districts || [];
@@ -315,7 +325,12 @@ export function StaffBusinessForm({ editing = false }) {
                             <span className="w-1 h-5 bg-[var(--d-gold)]" />{group}
                         </h3>
                         <div className="p-6 grid sm:grid-cols-2 gap-5">
-                            {BUSINESS_FIELDS.filter((f) => f.group === gi).map((field) => (
+                            {BUSINESS_FIELDS.filter((f) => f.group === gi).map((field) => field.name === "location_link" ? (
+                                <GoogleMapsLinkField key={field.name} value={values.location_link}
+                                    onChange={(locationLink) => setValues((current) => ({ ...current, location_link: locationLink }))}
+                                    businessDetails={values} inputClassName="afx-input w-full"
+                                    buttonClassName="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--d-line)] bg-[var(--d-card)] px-3 text-xs font-semibold text-[var(--d-gold-deep)] transition hover:border-[var(--d-gold)]" />
+                            ) : (
                                 <BusinessField key={field.name} field={field} value={values[field.name]} onChange={updateField(field.name)}
                                     suggestions={field.name === "state" ? INDIA_STATES : field.name === "district" && values.state ? districtSuggestions : undefined} />
                             ))}
@@ -347,7 +362,11 @@ function DetailGrid({ title, rows, delay }) {
                 {rows.map(([label, value, wide]) => (
                     <div key={label} className={wide ? "sm:col-span-2" : ""}>
                         <dt className="text-xs text-[var(--d-muted)]">{label}</dt>
-                        <dd className="mt-1 text-sm font-medium break-words">{value || "—"}</dd>
+                        <dd className="mt-1 text-sm font-medium break-words">
+                            {label === "Map / location link" && value
+                                ? <a href={value} target="_blank" rel="noreferrer" className="text-[var(--d-gold-deep)] hover:underline">Open map location</a>
+                                : value || "—"}
+                        </dd>
                     </div>
                 ))}
             </dl>
@@ -420,16 +439,18 @@ export function StaffBusinessDetails() {
 
                     <div className="grid md:grid-cols-2 gap-6">
                         <DetailGrid title="Owner & contact" delay={80} rows={[
-                            ["Owner", b.owner_name], ["Owner phone", b.owner_phone],
+                            ["Owner", b.owner_name], ["Contact number", b.owner_phone],
                             ["Alternate phone", b.alternate_phone], ["Email", b.email, true],
                         ]} />
                         <DetailGrid title="Location" delay={140} rows={[
                             ["State", b.state], ["District", b.district],
                             ["City / place", b.city], ["PIN code", b.pincode], ["Address", b.address, true],
+                            ["Map / location link", safeExternalUrl(b.location_link)],
                         ]} />
                     </div>
                     <DetailGrid title="About" delay={200} rows={[
                         ["Year established", b.year_established],
+                        ["Staff ID", b.staff_id],
                         ["Created", b.created_at && new Date(b.created_at).toLocaleString("en-IN")],
                         ["Description", b.business_description, true],
                     ]} />

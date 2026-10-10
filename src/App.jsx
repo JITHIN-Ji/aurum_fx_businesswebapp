@@ -5,6 +5,7 @@ import StaffAuth from "./pages/StaffAuth"
 import StaffLayout from "./pages/satfflayout"
 import StaffDashboard from "./pages/satffdashboard"
 import StaffProfile from "./pages/StaffProfile"
+import StaffKyc from "./pages/StaffKyc"
 import { StaffBusinessDetails, StaffBusinessDirectory, StaffBusinessForm } from "./pages/StaffBusinesses"
 import AdminLogin from "./pages/AdminLogin"
 import AdminLayout from "./pages/AdminLayout"
@@ -13,6 +14,8 @@ import AdminProfile from "./pages/AdminProfile"
 import AdminStaff, { AdminStaffEdit } from "./pages/AdminStaff"
 import AdminStaffRegistration from "./pages/AdminStaffRegistration"
 import AdminBusinesses, { AdminBusinessForm } from "./pages/AdminBusinesses"
+import AdminStaffBusinesses from "./pages/AdminStaffBusinesses"
+import AdminStaffKyc from "./pages/AdminStaffKyc"
 import AdminMessages from "./pages/AdminMessages"
 import StaffMessages from "./pages/StaffMessages"
 import BrowseDistricts from "./pages/BrowseDistricts"
@@ -59,6 +62,9 @@ export default function App() {
                 <Route path="/staff/profile" element={<StaffLayout />}>
                     <Route index element={<StaffProfile />} />
                 </Route>
+                <Route path="/staff/kyc" element={<StaffLayout />}>
+                    <Route index element={<StaffKyc />} />
+                </Route>
                 <Route path="/staff/messages" element={<StaffLayout />}>
                     <Route index element={<StaffMessages />} />
                 </Route>
@@ -76,6 +82,8 @@ export default function App() {
                     <Route path="staff/register" element={<AdminStaffRegistration />} />
                     <Route path="staff/:staffId/edit" element={<AdminStaffEdit />} />
                     <Route path="staff/:staffId" element={<AdminStaff />} />
+                    <Route path="staff-reports" element={<AdminStaffBusinesses />} />
+                    <Route path="staff-kyc" element={<AdminStaffKyc />} />
                     <Route path="businesses" element={<AdminBusinesses />} />
                     <Route path="businesses/new" element={<AdminBusinessForm />} />
                     <Route path="businesses/:businessId" element={<AdminBusinesses />} />

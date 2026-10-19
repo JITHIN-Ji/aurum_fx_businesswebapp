@@ -1,6 +1,6 @@
 import { createElement, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { AlertCircle, ArrowLeft, Building2, CalendarDays, Eye, Loader2, Mail, MapPin, Pencil, Phone, Printer, RefreshCw, Search, ShieldCheck, UserCheck, UserX, Users } from "lucide-react";
+import { AlertCircle, ArrowLeft, Building2, CalendarDays, Eye, EyeOff, Loader2, Mail, MapPin, Pencil, Phone, Printer, RefreshCw, Search, ShieldCheck, UserCheck, UserX, Users } from "lucide-react";
 import { getAdminStaff, getAdminStaffMember, getAdminStaffPrint, updateAdminStaffProfile, updateAdminStaffStatus } from "../api/adminStaff";
 import AadhaarImageUpload from "../components/AadhaarImageUpload";
 import indiaStatesDistricts from "../data/indiaStatesDistricts.json";
@@ -454,6 +454,8 @@ function AdminStaffEditForm() {
     const [error, setError] = useState("");
     const [loadError, setLoadError] = useState("");
     const [existingImages, setExistingImages] = useState({ front: "", back: "" });
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const districts = indiaStatesDistricts.find(({ state }) => state === values.state)?.districts || [];
 
     useEffect(() => {
@@ -567,7 +569,11 @@ function AdminStaffEditForm() {
                         <div className="grid gap-5 sm:grid-cols-2">
                             <label className="block text-sm font-semibold">
                                 Name <span className="text-rose-600">*</span>
-                                <input name="name" required value={values.name} onChange={updateField} autoComplete="name" className="ae-input mt-1.5" />
+                                <input name="name" required value={values.name} onChange={updateField}
+                                    onBlur={(event) => {
+                                        const name = event.currentTarget.value.trim().toUpperCase();
+                                        setValues((current) => ({ ...current, name }));
+                                    }} autoComplete="name" className="ae-input mt-1.5" />
                             </label>
                             <label className="block text-sm font-semibold">
                                 Email <span className="text-rose-600">*</span>
@@ -626,11 +632,27 @@ function AdminStaffEditForm() {
                             <div className="mt-4 grid gap-5 sm:grid-cols-2">
                                 <label className="block text-sm font-semibold">
                                     New password
-                                    <input name="password" type="password" autoComplete="new-password" minLength={8} value={values.password} onChange={updateField} className="ae-input mt-1.5" />
+                                    <span className="relative mt-1.5 block">
+                                        <input name="password" type={showPassword ? "text" : "password"} autoComplete="new-password"
+                                            minLength={8} value={values.password} onChange={updateField} className="ae-input pr-11" />
+                                        <button type="button" onClick={() => setShowPassword((visible) => !visible)}
+                                            aria-label={showPassword ? "Hide password" : "Show password"}
+                                            className="absolute right-0 top-0 grid h-10 w-11 place-items-center text-gray-500 hover:text-gray-900">
+                                            {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                                        </button>
+                                    </span>
                                 </label>
                                 <label className="block text-sm font-semibold">
                                     Confirm new password
-                                    <input name="confirmPassword" type="password" autoComplete="new-password" minLength={8} value={values.confirmPassword} onChange={updateField} className="ae-input mt-1.5" />
+                                    <span className="relative mt-1.5 block">
+                                        <input name="confirmPassword" type={showConfirmPassword ? "text" : "password"} autoComplete="new-password"
+                                            minLength={8} value={values.confirmPassword} onChange={updateField} className="ae-input pr-11" />
+                                        <button type="button" onClick={() => setShowConfirmPassword((visible) => !visible)}
+                                            aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                                            className="absolute right-0 top-0 grid h-10 w-11 place-items-center text-gray-500 hover:text-gray-900">
+                                            {showConfirmPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                                        </button>
+                                    </span>
                                 </label>
                             </div>
                         </div>
@@ -664,6 +686,7 @@ const CSS = `
 .as-input{width:100%; height:40px; padding:0 12px 0 38px; border-radius:6px; border:1px solid #D8D0BC; background:#fff; font-size:14px; transition:border-color .15s,box-shadow .15s}
 .as-input:focus{outline:none; border-color:#862A42; box-shadow:0 0 0 3px rgba(134,42,66,.12)}
 .ae-input{width:100%; height:40px; padding:0 12px; border-radius:6px; border:1px solid #D8D0BC; background:#fff; font-size:14px; font-weight:400; transition:border-color .15s,box-shadow .15s}
+.ae-input::-ms-reveal,.ae-input::-ms-clear{display:none}
 .ae-input:focus{outline:none; border-color:#862A42; box-shadow:0 0 0 3px rgba(134,42,66,.12)}
 .as-table th{padding:12px 20px; font-size:11.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--ad-muted); background:#FAF8F5; border-bottom:1px solid var(--ad-line); white-space:nowrap}
 .as-table td{padding:14px 20px; border-bottom:1px solid var(--ad-line); vertical-align:middle}

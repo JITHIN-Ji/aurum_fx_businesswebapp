@@ -34,9 +34,6 @@ function DocumentCard({ title, imageUrl }) {
                             Open full image
                         </span>
                     </a>
-                    <a href={imageUrl} download className="mt-2 inline-flex text-sm font-semibold text-[var(--d-gold-deep)] hover:underline">
-                        Download image
-                    </a>
                 </>
             ) : (
                 <div className="grid h-64 place-items-center rounded-lg border border-dashed border-[var(--d-line)] bg-[var(--d-bg)] text-sm text-[var(--d-muted)]">
@@ -86,7 +83,7 @@ export default function StaffKyc() {
             return;
         }
         if (isApproved) {
-            setUploadError("Your KYC is approved. You can download your Aadhaar images, but cannot change or resubmit them.");
+            setUploadError("Your KYC is approved. You cannot change or resubmit your Aadhaar images.");
             return;
         }
         if (!files.aadhaar_front_image || !files.aadhaar_back_image) {
@@ -159,7 +156,7 @@ export default function StaffKyc() {
                 <section className="afx-card afx-rise flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-900 sm:p-6" style={{ animationDelay: "200ms" }}>
                     <FileCheck2 size={20} className="mt-0.5 shrink-0" />
                     <p className="text-sm leading-relaxed">
-                        Your KYC is approved. You can open or download the Aadhaar images above, but cannot change or resubmit them.
+                        Your KYC is approved. You can view the Aadhaar images above, but cannot change or resubmit them.
                     </p>
                 </section>
             ) : statusError || loading ? (

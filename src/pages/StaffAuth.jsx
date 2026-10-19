@@ -133,10 +133,7 @@ function LoginForm() {
             <PasswordField id="password" label="Password" autoComplete="current-password"
                 value={v.password} onChange={set("password")} error={errors.password} />
             {serverError && <p role="alert" className="text-sm text-[var(--a-err)] flex items-start gap-2"><AlertCircle size={16} className="shrink-0 mt-0.5" />{serverError}</p>}
-            <div className="flex items-center justify-between">
-                <CheckField id="remember" checked={v.remember} onChange={set("remember")}>Keep me signed in</CheckField>
-                <button type="button" className="text-sm text-[var(--a-gold-deep)] hover:underline">Forgot password?</button>
-            </div>
+            <CheckField id="remember" checked={v.remember} onChange={set("remember")}>Keep me signed in</CheckField>
             <SubmitButton loading={loading}>{loading ? "Signing in" : "Sign in"}</SubmitButton>
         </form>
     );
@@ -171,7 +168,7 @@ function PasswordField({ id, label, error, hint, ...props }) {
                     aria-describedby={error || hint ? `${id}-msg` : undefined} className={`afx-input pr-12 ${error ? "afx-input-err" : ""}`} {...props} />
                 <button type="button" onClick={() => setShow(!show)} aria-label={show ? "Hide password" : "Show password"}
                     className="absolute right-0 top-0 h-12 w-12 grid place-items-center text-[var(--a-muted)] hover:text-[var(--a-text)]">
-                    {show ? <EyeOff size={18} /> : <Eye size={18} />}
+                    {show ? <Eye size={18} /> : <EyeOff size={18} />}
                 </button>
             </div>
             <Message id={id} error={error} hint={hint} />
@@ -219,6 +216,7 @@ const CSS = `
   border:1px solid var(--a-line); font:inherit; font-size:15px; transition:border-color .2s, box-shadow .2s;
 }
 .afx-input::placeholder{color:var(--a-muted); opacity:.7}
+.afx-input::-ms-reveal,.afx-input::-ms-clear{display:none}
 .afx-input:hover{border-color:color-mix(in srgb, var(--a-gold) 55%, var(--a-line))}
 .afx-input:focus{outline:none; border-color:var(--a-gold); box-shadow:0 0 0 3px color-mix(in srgb, var(--a-gold) 25%, transparent)}
 .afx-input-err{border-color:var(--a-err)}

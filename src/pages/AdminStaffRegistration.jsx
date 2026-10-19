@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, CheckCircle2, Loader2, UserPlus } from "lucide-react";
+import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2, UserPlus } from "lucide-react";
 import { registerAdminStaff } from "../api/adminStaff";
 import AadhaarImageUpload from "../components/AadhaarImageUpload";
 import indiaStatesDistricts from "../data/indiaStatesDistricts.json";
@@ -18,11 +18,15 @@ const EMPTY_FORM = {
     aadhaar_back_image: null,
 };
 
+const capitalizeStaffName = (name) => name.trim().toUpperCase();
+
 function Panel({ children, className = "" }) {
     return <section className={`ar-panel ${className}`}>{children}</section>;
 }
 
-function Field({ label, name, value, onChange, type = "text", autoComplete, required = true }) {
+function Field({ label, name, value, onChange, onBlur, type = "text", autoComplete, required = true }) {
+    const [showPassword, setShowPassword] = useState(false);
+    const isPassword = type === "password";
     return (
         <label htmlFor={`staff-registration-${name}`} className="block text-sm font-semibold">
             {label}{required && <span className="text-rose-600"> *</span>}
@@ -30,9 +34,19 @@ function Field({ label, name, value, onChange, type = "text", autoComplete, requ
                 <textarea id={`staff-registration-${name}`} name={name} value={value} onChange={onChange}
                     autoComplete={autoComplete} required={required} rows={4} className="ar-input mt-1.5 !h-auto py-3" />
             ) : (
-                <input id={`staff-registration-${name}`} name={name} type={type} value={value} onChange={onChange}
-                    autoComplete={autoComplete} required={required} minLength={name === "password" ? 8 : undefined}
-                    className="ar-input mt-1.5" />
+                <span className={isPassword ? "relative mt-1.5 block" : "block"}>
+                    <input id={`staff-registration-${name}`} name={name}
+                        type={isPassword && showPassword ? "text" : type} value={value} onChange={onChange}
+                        onBlur={onBlur} autoComplete={autoComplete} required={required} minLength={isPassword ? 8 : undefined}
+                        className={`ar-input ${isPassword ? "pr-11" : "mt-1.5"}`} />
+                    {isPassword && (
+                        <button type="button" onClick={() => setShowPassword((visible) => !visible)}
+                            aria-label={showPassword ? "Hide password" : "Show password"}
+                            className="absolute right-0 top-0 grid h-[42px] w-11 place-items-center text-gray-500 hover:text-gray-900">
+                            {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                        </button>
+                    )}
+                </span>
             )}
         </label>
     );
@@ -121,7 +135,11 @@ export default function AdminStaffRegistration() {
                 </h3>
                 <form onSubmit={submit} className="space-y-5 p-6">
                     <div className="grid gap-5 sm:grid-cols-2">
-                        <Field label="Full name" name="name" value={values.name} onChange={updateField} autoComplete="name" />
+                        <Field label="Full name" name="name" value={values.name} onChange={updateField}
+                            onBlur={(event) => {
+                                const name = capitalizeStaffName(event.currentTarget.value);
+                                setValues((current) => ({ ...current, name }));
+                            }} autoComplete="name" />
                         <Field label="Email" name="email" type="email" value={values.email} onChange={updateField} autoComplete="email" />
                         <Field label="Password" name="password" type="password" value={values.password} onChange={updateField} autoComplete="new-password" />
                         <Field label="Phone" name="phone" type="tel" value={values.phone} onChange={updateField} autoComplete="tel" />
@@ -188,6 +206,7 @@ export default function AdminStaffRegistration() {
 const CSS = `
 .ar-panel{background:var(--ad-card); border:1px solid var(--ad-line); border-radius:6px; box-shadow:0 1px 2px rgba(42,26,31,.06)}
 .ar-input{width:100%; height:42px; padding:0 12px; border-radius:6px; border:1px solid #D8D0BC; background:#fff; font-size:14px; font-weight:400; transition:border-color .15s,box-shadow .15s}
+.ar-input::-ms-reveal,.ar-input::-ms-clear{display:none}
 .ar-input:focus{outline:none; border-color:#862A42; box-shadow:0 0 0 3px rgba(134,42,66,.12)}
 .ar-submit{display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:0 20px; border-radius:6px; background:#5A1A2B; color:#fff; border:1px solid #5A1A2B; font-size:14px; font-weight:600; transition:background .15s}
 .ar-submit:hover:not(:disabled){background:#6B2034}

@@ -42,9 +42,6 @@ function ProfileImage({ label, src }) {
                     <a href={src} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-[var(--d-line)] bg-white">
                         <img src={src} alt={label} loading="lazy" className="h-52 w-full object-contain p-2" />
                     </a>
-                    <a href={src} download className="mt-2 inline-flex text-sm font-semibold text-[var(--d-gold-deep)] hover:underline">
-                        Download image
-                    </a>
                 </>
             ) : (
                 <p className="grid h-52 place-items-center rounded-lg border border-dashed border-[var(--d-line)] text-sm text-[var(--d-muted)]">No image on file</p>
@@ -135,7 +132,7 @@ export default function StaffProfile() {
             return;
         }
         if (formatKycStatus(kycStatus).toLocaleUpperCase("en-IN").includes("APPROVED")) {
-            setKycError("Your KYC is approved. You can download your Aadhaar images, but cannot change or resubmit them.");
+            setKycError("Your KYC is approved. You cannot change or resubmit your Aadhaar images.");
             return;
         }
         if (!kycFiles.aadhaar_front_image || !kycFiles.aadhaar_back_image) {
@@ -257,7 +254,7 @@ export default function StaffProfile() {
                             </span>
                             <div className="min-w-0">
                                 <h2 className="afx-serif text-xl font-semibold">Aadhaar documents</h2>
-                                <p className="text-sm leading-relaxed text-[var(--d-muted)]">View, download, and manage your Aadhaar documents.</p>
+                                <p className="text-sm leading-relaxed text-[var(--d-muted)]">View and manage your Aadhaar documents.</p>
                             </div>
                         </div>
                         <div className="space-y-5 p-5 sm:p-6">
@@ -274,12 +271,12 @@ export default function StaffProfile() {
                             </div>
                             {kycApproved ? (
                                 <p className="border-t border-[var(--d-line)] pt-5 text-sm font-medium text-emerald-800">
-                                    Your KYC is approved. You can download the Aadhaar images above, but cannot change or resubmit them.
+                                    Your KYC is approved. You can view the Aadhaar images above, but cannot change or resubmit them.
                                 </p>
                             ) : kycStatusLoading || kycStatusError ? null : (
                                 <form onSubmit={submitKyc} className="space-y-4 border-t border-[var(--d-line)] pt-5">
                                     <p className="text-sm text-[var(--d-muted)]">
-                                        Choose both sides to submit or replace your Aadhaar documents. Once approved, documents can only be downloaded.
+                                        Choose both sides to submit or replace your Aadhaar documents. Once approved, documents can only be viewed.
                                     </p>
                                     <div className="grid gap-4 sm:grid-cols-2">
                                         {[

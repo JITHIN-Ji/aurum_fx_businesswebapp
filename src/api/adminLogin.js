@@ -77,6 +77,49 @@ function responseError(data, fallback) {
     return fallback;
 }
 
+async function adminAuthRequest(path, body) {
+    if (!API_BASE_URL) {
+        throw new Error("VITE_API_BASE_URL is not configured. Add it to .env and restart the development server.");
+    }
+
+    const headers = { Accept: "application/json" };
+    const options = { method: "POST", headers };
+    if (body !== undefined) {
+        headers["Content-Type"] = "application/json";
+        options.body = JSON.stringify(body);
+    }
+
+    let response;
+    try {
+        response = await fetch(`${API_BASE_URL}${path}`, options);
+    } catch (error) {
+        throw new Error(`Could not connect to the admin service. ${error.message}`);
+    }
+
+    const data = parseResponse(await response.text());
+    if (!response.ok) throw new Error(responseError(data, `Admin request failed (${response.status}).`));
+    return data;
+}
+
+export function requestAdminPasswordReset() {
+    return adminAuthRequest("/admin-auth/forgot-password");
+}
+
+export function verifyAdminPasswordReset({ otp, resetRequestId }) {
+    return adminAuthRequest("/admin-auth/verify-reset-otp", {
+        otp,
+        reset_request_id: resetRequestId,
+    });
+}
+
+export function resetAdminPassword({ resetToken, newPassword, confirmPassword }) {
+    return adminAuthRequest("/admin-auth/reset-password", {
+        reset_token: resetToken,
+        new_password: newPassword,
+        confirm_password: confirmPassword,
+    });
+}
+
 export async function loginAdmin({ email, password }) {
     if (!API_BASE_URL) {
         throw new Error("VITE_API_BASE_URL is not configured. Add it to .env and restart the development server.");

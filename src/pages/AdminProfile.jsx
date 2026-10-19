@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, CheckCircle2, KeyRound, Loader2, Mail, ShieldCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, Eye, EyeOff, KeyRound, Loader2, Mail, ShieldCheck } from "lucide-react";
 import { updateAdminProfile } from "../api/adminLogin";
 
 const EMPTY_FORM = { newEmail: "", confirmEmail: "", newPassword: "", confirmPassword: "" };
@@ -8,18 +8,30 @@ function Panel({ children, className = "" }) {
     return <section className={`ap-panel ${className}`}>{children}</section>;
 }
 
-function Field({ label, name, type, value, onChange, autoComplete, minLength }) {
+function Field({ label, name, type, value, onChange, autoComplete, minLength, showPassword, onTogglePassword }) {
     return (
-        <label htmlFor={`admin-profile-${name}`} className="block text-sm font-semibold">
-            {label}
-            <input id={`admin-profile-${name}`} name={name} type={type} value={value} onChange={onChange}
-                autoComplete={autoComplete} minLength={minLength} className="ap-input mt-1.5" />
-        </label>
+        <div className="text-sm font-semibold">
+            <label htmlFor={`admin-profile-${name}`}>{label}</label>
+            <span className="relative mt-1.5 block">
+                <input id={`admin-profile-${name}`} name={name} type={showPassword === undefined ? type : showPassword ? "text" : "password"} value={value} onChange={onChange}
+                    autoComplete={autoComplete} minLength={minLength} className={`ap-input ${showPassword === undefined ? "" : "pr-11"}`} />
+                {showPassword !== undefined && (
+                    <button type="button" onClick={onTogglePassword}
+                        aria-label={`${showPassword ? "Hide" : "Show"} ${label.toLowerCase()}`}
+                        aria-pressed={showPassword}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-[var(--ad-muted)] hover:text-[#862A42] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#862A42]">
+                        {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                    </button>
+                )}
+            </span>
+        </div>
     );
 }
 
 export default function AdminProfile() {
     const [values, setValues] = useState(EMPTY_FORM);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
@@ -122,8 +134,10 @@ export default function AdminProfile() {
                         Change password
                     </h3>
                     <div className="mt-5 grid gap-5 sm:grid-cols-2">
-                        <Field label="New password" name="newPassword" type="password" value={values.newPassword} onChange={updateField} autoComplete="new-password" minLength={8} />
-                        <Field label="Confirm new password" name="confirmPassword" type="password" value={values.confirmPassword} onChange={updateField} autoComplete="new-password" minLength={8} />
+                        <Field label="New password" name="newPassword" type="password" value={values.newPassword} onChange={updateField} autoComplete="new-password" minLength={8}
+                            showPassword={showNewPassword} onTogglePassword={() => setShowNewPassword((shown) => !shown)} />
+                        <Field label="Confirm new password" name="confirmPassword" type="password" value={values.confirmPassword} onChange={updateField} autoComplete="new-password" minLength={8}
+                            showPassword={showConfirmPassword} onTogglePassword={() => setShowConfirmPassword((shown) => !shown)} />
                     </div>
                     <p className="mt-3 text-xs text-[var(--ad-muted)]">Password must be at least 8 characters. Leave both password fields blank if you are only changing your email.</p>
                 </Panel>
@@ -140,6 +154,7 @@ export default function AdminProfile() {
 const CSS = `
 .ap-panel{background:var(--ad-card); border:1px solid var(--ad-line); border-radius:6px; padding:24px; box-shadow:0 1px 2px rgba(42,26,31,.06); animation:ap-rise .4s ease-out both}
 .ap-input{width:100%; height:42px; padding:0 12px; border-radius:6px; border:1px solid #D8D0BC; background:#fff; font-size:14px; font-weight:400; transition:border-color .15s,box-shadow .15s}
+.ap-input[type="password"]::-ms-reveal{display:none}
 .ap-input:focus{outline:none; border-color:#862A42; box-shadow:0 0 0 3px rgba(134,42,66,.12)}
 .ap-submit{display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:0 20px; border-radius:6px; background:#5A1A2B; color:#fff; border:1px solid #5A1A2B; font-size:14px; font-weight:600; transition:background .15s}
 .ap-submit:hover:not(:disabled){background:#6B2034}

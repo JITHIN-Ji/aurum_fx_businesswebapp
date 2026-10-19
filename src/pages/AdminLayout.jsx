@@ -170,11 +170,14 @@ export default function AdminLayout() {
                             <h1 className="ad-display truncate text-2xl font-bold leading-tight md:text-[28px]">{current.name}</h1>
                         </div>
                     </div>
-                    <div className="hidden shrink-0 items-center gap-3 md:flex">
-                        <span className="rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-[13px] text-white/90 backdrop-blur-sm">{today}</span>
-                        <span className="inline-flex items-center gap-2 rounded-full border border-[#D9AE4B]/50 bg-[#D9AE4B]/15 px-3.5 py-1.5 text-[13px] font-medium text-[#F0D58A]">
+                    <div className="flex shrink-0 items-center gap-2 md:gap-3">
+                        <span className="hidden rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-[13px] text-white/90 backdrop-blur-sm md:inline">{today}</span>
+                        <span className="hidden items-center gap-2 rounded-full border border-[#D9AE4B]/50 bg-[#D9AE4B]/15 px-3.5 py-1.5 text-[13px] font-medium text-[#F0D58A] md:inline-flex">
                             <ShieldCheck size={15} /> Secure session
                         </span>
+                        <button type="button" onClick={signOut} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/25 px-3 text-sm font-medium text-white transition hover:border-[#D9AE4B] hover:bg-[#D9AE4B]/10 hover:text-[#F0D58A] md:px-3.5">
+                            <LogOut size={16} /> <span className="hidden sm:inline">Sign out</span>
+                        </button>
                     </div>
                 </header>
 
